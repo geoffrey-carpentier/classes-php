@@ -416,3 +416,13 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# PDF files
+*.pdf
+
+# JPEG / JPG / PNG / BMP / GIF image files
+*.jpeg
+*.jpg
+*.png
+*.bmp
+*.gif
