@@ -325,7 +325,7 @@ class User
         $this->lastname = null;
     }
 
-    /**
+    /** 
      *TODO Méthodes update() et delete() à implémenter :
      * Tester d'abord register() et connect().
      *? - update() : préparer UPDATE en BDD et mettre à jour les attributs.
@@ -335,13 +335,115 @@ class User
 
     public function update(string $login, string $password, string $email, string $firstname, string $lastname): bool
     {
-        // TODO : implémentation à faire
-        return false;
+        // Vérifier que l'objet représente un utilisateur connecté (id disponible).
+        // Sans id on ne peut pas savoir quelle ligne mettre à jour en base.
+        if ($this->id === null) {
+            return false; // aucun utilisateur à mettre à jour
+        }
+
+        // Normalisation minimale des entrées
+        $login     = trim($login);
+        $password  = trim($password);
+        $email     = trim($email);
+        $firstname = trim($firstname);
+        $lastname  = trim($lastname);
+
+        // Validation basique (similaire à register)
+        if ($login === '' || $password === '') {
+            // Ici on exige un login et un mot de passe (conforme à la signature fournie).
+            return false;
+        }
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+        if (strlen($login) > 100 || strlen($email) > 150 || strlen($firstname) > 100 || strlen($lastname) > 100) {
+            return false;
+        }
+
+        // Hasher le mot de passe avant de l'enregistrer en base
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        if ($hashedPassword === false || $hashedPassword === null) {
+            return false;
+        }
+
+        // Préparer la requête UPDATE sécurisée
+        $sql = "UPDATE `utilisateurs` 
+                SET `login` = ?, `password` = ?, `email` = ?, `firstname` = ?, `lastname` = ?
+                WHERE `id` = ?";
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            return false;
+        }
+
+        // Lier les paramètres : 5 strings + un entier (id)
+        $bindOk = $stmt->bind_param('sssssi', $login, $hashedPassword, $email, $firstname, $lastname, $this->id);
+        if ($bindOk === false) {
+            $stmt->close();
+            return false;
+        }
+
+        // Exécuter en catchant d'éventuelles exceptions mysqli
+        try {
+            $execOk = $stmt->execute();
+        } catch (mysqli_sql_exception $e) {
+            // Si doublon sur login (1062) ou autre erreur SQL, on échoue proprement.
+            $stmt->close();
+            return false;
+        }
+
+        if ($execOk === false) {
+            $stmt->close();
+            return false;
+        }
+
+        // Mettre à jour l'état de l'objet seulement si l'UPDATE a réussi.
+        $this->login     = $login;
+        $this->email     = $email;
+        $this->firstname = $firstname;
+        $this->lastname  = $lastname;
+        // Le mot de passe n'est pas stocké en clair dans l'objet par conception.
+
+        $stmt->close();
+        return true;
     }
 
     public function delete(): bool
     {
-        // TODO : implémentation à faire
-        return false;
+        // Vérifier qu'on a bien un utilisateur identifié à supprimer.
+        if ($this->id === null) {
+            return false;
+        }
+
+        // Préparer la requête DELETE
+        $sql = "DELETE FROM `utilisateurs` WHERE `id` = ?";
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            return false;
+        }
+
+        // Lier l'id (type entier)
+        $bindOk = $stmt->bind_param('i', $this->id);
+        if ($bindOk === false) {
+            $stmt->close();
+            return false;
+        }
+
+        // Exécution sécurisée avec gestion d'exception éventuelle
+        try {
+            $execOk = $stmt->execute();
+        } catch (mysqli_sql_exception $e) {
+            $stmt->close();
+            return false;
+        }
+
+        if ($execOk === false) {
+            $stmt->close();
+            return false;
+        }
+
+        // Si suppression OK, réinitialiser l'objet (déconnecter côté objet)
+        $stmt->close();
+        $this->disconnect();
+        return true;
     }
 }
