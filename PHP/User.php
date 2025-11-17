@@ -198,12 +198,118 @@ class User
      */
     public function connect(string $login, string $password)
     {
-        // TODO : implémenter la sélection et vérification
-        //? 1) $stmt = $this->db->prepare("SELECT id, password, email, firstname, lastname FROM utilisateurs WHERE login = ?");
-        //? 2) $stmt->bind_param("s", $login);
-        //? 3) $stmt->execute();
-        //? 4) $stmt->bind_result($id, $hash, $email, $firstname, $lastname);
-        //? 5) if ($stmt->fetch() && password_verify($password, $hash)) { remplir attributs; }
+        // ===== Normalisation et validations rapides ==================================
+        // Retirer les espaces superflus autour des valeurs reçues.
+        $login = trim($login);
+        $password = trim($password);
+
+        // Vérifier que les champs obligatoires sont fournis.
+        if ($login === '') {
+            return ['success' => false, 'error_code' => 'validation_failed', 'message' => 'Le champ login est vide'];
+        }
+        if ($password === '') {
+            return ['success' => false, 'error_code' => 'validation_failed', 'message' => 'Le champ mot de passe est vide'];
+        }
+
+        // ===== Préparation de la requête SELECT ======================================
+        // On récupère l'id, le hash du mot de passe et les autres champs utiles.
+        $sql = "SELECT id, password, email, firstname, lastname FROM `utilisateurs` WHERE login = ?";
+        $stmt = $this->db->prepare($sql);
+
+        // Si prepare() échoue, retourner une erreur structurée.
+        if ($stmt === false) {
+            return ['success' => false, 'error_code' => 'db_error', 'message' => 'Erreur préparation requête'];
+        }
+
+        // ===== Liaison du paramètre et exécution ====================================
+        // Lier le paramètre login (type string).
+        $bindOk = $stmt->bind_param('s', $login);
+        if ($bindOk === false) {
+            $stmt->close();
+            return ['success' => false, 'error_code' => 'db_error', 'message' => 'Erreur liaison paramètres'];
+        }
+
+        // Exécuter en entourant d'un try/catch car mysqli peut lancer des exceptions
+        // selon la configuration (mysqli_sql_exception).
+        try {
+            $execOk = $stmt->execute();
+        } catch (mysqli_sql_exception $e) {
+            // Récupérer le code d'erreur MySQL si disponible.
+            $errno = (int) $e->getCode();
+            $stmt->close();
+
+            // Retour générique pour les erreurs SQL ; on peut ajouter des cas spécifiques si besoin.
+            return ['success' => false, 'error_code' => 'db_error', 'message' => 'Erreur base de données'];
+        }
+
+        if ($execOk === false) {
+            // Cas rare où execute() retourne false sans lever d'exception.
+            $errno = $stmt->errno ?? 0;
+            $stmt->close();
+            return ['success' => false, 'error_code' => 'db_error', 'message' => 'Erreur base de données'];
+        }
+
+        // ===== Récupération des résultats ============================================
+        // Deux options : utiliser get_result() si disponible (mysqlnd), sinon bind_result+fetch.
+        $row = null;
+
+        // Option A : get_result disponible -> fetch assoc (plus simple).
+        if (method_exists($stmt, 'get_result')) {
+            $result = $stmt->get_result();
+            if ($result !== false) {
+                $row = $result->fetch_assoc() ?: null;
+            }
+        } else {
+            // Option B : bind_result + fetch (compatible sans get_result).
+            $id = null;
+            $hash = null;
+            $email = null;
+            $firstname = null;
+            $lastname = null;
+
+            $bindRes = $stmt->bind_result($id, $hash, $email, $firstname, $lastname);
+            if ($bindRes !== false) {
+                $fetched = $stmt->fetch();
+                if ($fetched) {
+                    $row = [
+                        'id' => $id,
+                        'password' => $hash,
+                        'email' => $email,
+                        'firstname' => $firstname,
+                        'lastname' => $lastname
+                    ];
+                }
+            }
+        }
+
+        // Si aucun utilisateur trouvé pour ce login -> identifiants incorrects.
+        if ($row === null) {
+            $stmt->close();
+            return ['success' => false, 'error_code' => 'invalid_credentials', 'message' => 'Identifiants incorrects'];
+        }
+
+        // ===== Vérification du mot de passe =========================================
+        // Le mot de passe stocké en base est un hash ; on vérifie avec password_verify.
+        $storedHash = $row['password'] ?? '';
+        if (!is_string($storedHash) || $storedHash === '' || !password_verify($password, $storedHash)) {
+            // Mot de passe incorrect.
+            $stmt->close();
+            return ['success' => false, 'error_code' => 'invalid_credentials', 'message' => 'Identifiants incorrects'];
+        }
+
+        // ===== Authentification réussie : remplir l'objet ===========================
+        // Cast sécuritaire de l'id en int.
+        $this->id = isset($row['id']) ? (int)$row['id'] : null;
+        $this->login = $login; // garder le login demandé (normalisé)
+        $this->email = $row['email'] ?? null;
+        $this->firstname = $row['firstname'] ?? null;
+        $this->lastname = $row['lastname'] ?? null;
+
+        // Libérer la ressource statement.
+        $stmt->close();
+
+        // Retour structuré avec les infos utilisateur (conformes à getAllInfos()).
+        return ['success' => true, 'user' => $this->getAllInfos()];
     }
 
     /**
