@@ -24,7 +24,8 @@ class User
     public ?string $lastname = null; // Nom de l'utilisateur
 
 # Connexion à la base de données (instance mysqli)
-    private mysqli $db; // Propriété -> les méthodes de  classe peuvent exécuter des requêtes SQL.
+// On la garde en propriété pour que les méthodes de la classe puissent exécuter des requêtes SQL.
+    private mysqli $db; 
 
 # Constructeur :reçoit une instance mysqli préalablement connectée
     public function __construct(mysqli $db) {
@@ -54,9 +55,9 @@ class User
     public function getFirstname(): ?string { return $this->firstname; }
     public function getLastname(): ?string { return $this->lastname; }
 
- /**
+ /**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
      * Méthode stub : register
-     * TODO: Implémentation complète à faire étape par étape :
+     * TODO: Implémentation complète à faire (étape par étape) :
      * ? - préparer/échaper les entrées,
      * ? - hash du mot de passe (avec 'password_hash'),
      * ? - exécuter INSERT avec mysqli->prepare / bind_param,
@@ -104,11 +105,11 @@ class User
     }
 
     /**
-     *TODO Méthodes stubs pour update() et delete() :
-     *? - update() : préparer UPDATE dans la BDD et mettre à jour les attributs.
+     *TODO Méthodes update() et delete() à implémenter :
+     * Tester d'abord register() et connect().
+     *? - update() : préparer UPDATE en BDD et mettre à jour les attributs.
      *? - delete() : supprimer l'utilisateur de la BDD (DELETE WHERE id = ?) et déconnecter l'objet.
-     *
-     * TODO: register() et connect() à implémenter après les avoir testées 
+     *  
      */
     
     public function update(string $login, string $password, string $email, string $firstname, string $lastname): bool

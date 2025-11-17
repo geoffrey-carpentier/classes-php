@@ -14,7 +14,7 @@ require_once __DIR__ . '/db_connect.php'; // initialise $mysqli
 require_once __DIR__ . '/User.php';       // définit la classe User
 
 # Vérification rapide de la connexion (affiche les infos de base du serveur MySQL).
-echo "Test de la connexion MySQL - Récupération des infos :\n";
+echo "Test de la connexion MySQL ... Récupération des infos :\n";
 echo "- Host info : " . $mysqli->host_info . PHP_EOL;
 echo "- Client info : " . mysqli_get_client_info() . PHP_EOL;
 
@@ -26,7 +26,7 @@ echo "\nÉtat initial de l'objet User (avant toute opération) :\n";
 var_dump($user->getAllInfos());
 
 # Vérification du statut de l'utilisateur (Résultat de 'isConnected()' )
-echo "\nStatut de connexion de l'utilisateur (Résultat de 'isConnected()') : ";
+echo "\nStatut de l'utilisateur 'isConnected()?' : ";
 var_export($user->isConnected());
 echo PHP_EOL;
 

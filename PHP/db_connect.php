@@ -16,7 +16,7 @@ $mysqli = new mysqli($dbHost, $dbUser, $dbPass, $dbName);
 # Vérification de la connexion : si erreur stop et affiche un message clair.
 
 if ($mysqli->connect_error) {
-    die("Erreur de connexion MySQL ({$mysqli->connect_errno}) : {$mysqli->connect_error}");
+    die("\nErreur de connexion à la base de données MySQL : " . $mysqli->connect_error);
 } // -> $mysqli->connect_error contient le message d'erreur éventuel.
 
 # Définir le jeu de caractères pour éviter les problèmes d'encodage (accents, emojis, etc.)
